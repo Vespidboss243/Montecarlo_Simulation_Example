@@ -196,7 +196,7 @@ def run_simulation():
         x=phases_x, 
         y=mean_path_y,
         mode='lines+markers',
-        line=dict(color=corporate_highlight, width=4),
+        line=dict(color='#DC143C', width=4),
         name='Expected Mean Path'
     ))
     
