@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import time
 
 # Ensure strict adherence to page layout and aesthetic requirements
 st.set_page_config(
@@ -66,7 +65,8 @@ def run_simulation():
         step=1000
     )
 
-    execute_sim = st.sidebar.button("Run Simulation", type="primary", use_container_width=True)
+    # Removed type="primary" to use the neutral, secondary default styling
+    execute_sim = st.sidebar.button("Run Simulation", use_container_width=True)
 
     # ==========================================
     # DEFAULT STATE BEFORE EXECUTION
@@ -99,126 +99,121 @@ def run_simulation():
     
     total_durations = cum_p4
 
-    # ==========================================
-    # PLACEHOLDERS FOR ANIMATION
-    # ==========================================
-    metrics_placeholder = st.empty()
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    chart_col1, chart_col2 = st.columns(2)
-    hist_placeholder = chart_col1.empty()
-    cdf_placeholder = chart_col2.empty()
-    
-    st.markdown("---")
-    st.markdown("#### Cumulative Phase Progression (Spaghetti Convergence)")
-    spaghetti_placeholder = st.empty()
+    # Calculate Key Metrics
+    mean_duration = np.mean(total_durations)
+    median_duration = np.percentile(total_durations, 50)
+    p90_duration = np.percentile(total_durations, 90)
 
-    # Common styling configurations (relying on Streamlit native theme for colors)
+    # ==========================================
+    # METRICS DISPLAY
+    # ==========================================
+    st.markdown("<br>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric(label="Expected Completion (Mean)", value=f"{mean_duration:,.0f} Days")
+    with col2:
+        st.metric(label="50th Percentile (Median)", value=f"{median_duration:,.0f} Days")
+    with col3:
+        st.metric(label="90th Percentile (Risk Target)", value=f"{p90_duration:,.0f} Days")
+
+    # ==========================================
+    # VISUALIZATIONS
+    # ==========================================
+    st.markdown("<br>", unsafe_allow_html=True)
+    chart_col1, chart_col2 = st.columns(2)
+
+    # Common styling configurations
     corporate_layout = dict(
         margin=dict(l=20, r=20, t=40, b=20),
         xaxis=dict(showgrid=False, zeroline=False),
         yaxis=dict(showgrid=False, zeroline=False)
     )
-
-    # ==========================================
-    # ANIMATION LOOP
-    # ==========================================
-    # Divide iterations into 10 frames for smooth animation without freezing the browser
-    batch_steps = max(iterations // 10, 100) 
     
-    for i in range(batch_steps, iterations + batch_steps, batch_steps):
-        current_idx = min(i, iterations)
-        
-        # Sliced data for current animation frame
-        current_totals = total_durations[:current_idx]
-        
-        # Calculate Key Metrics
-        mean_duration = np.mean(current_totals)
-        median_duration = np.percentile(current_totals, 50)
-        p90_duration = np.percentile(current_totals, 90)
+    # Corporate highlight color (Deep Midnight Blue)
+    corporate_highlight = "#003366" 
 
-        # 1. Update Metrics
-        with metrics_placeholder.container():
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric(label="Expected Completion (Mean)", value=f"{mean_duration:,.0f} Days")
-            with col2:
-                st.metric(label="50th Percentile (Median)", value=f"{median_duration:,.0f} Days")
-            with col3:
-                st.metric(label="90th Percentile (Risk Target)", value=f"{p90_duration:,.0f} Days")
-
-        # 2. Update Frequency Histogram
+    # 1. Frequency Histogram
+    with chart_col1:
         fig_hist = px.histogram(
-            x=current_totals,
+            x=total_durations,
             nbins=100,
             color_discrete_sequence=['#4682B4'],
             labels={'x': 'Total Project Duration (Days)', 'y': 'Frequency'},
             title="Project Duration Frequency Distribution"
         )
         fig_hist.update_layout(**corporate_layout)
-        fig_hist.add_vline(x=mean_duration, line_dash="dash", line_color="#DC143C", annotation_text="Mean")
-        hist_placeholder.plotly_chart(fig_hist, use_container_width=True, theme="streamlit")
+        fig_hist.add_vline(x=mean_duration, line_dash="dash", line_color=corporate_highlight, annotation_text="Mean")
+        st.plotly_chart(fig_hist, use_container_width=True, theme="streamlit")
 
-        # 3. Update CDF
+    # 2. Cumulative Distribution Function (CDF)
+    with chart_col2:
         fig_cdf = px.ecdf(
-            x=current_totals,
+            x=total_durations,
             color_discrete_sequence=['#4682B4'],
             labels={'x': 'Total Project Duration (Days)', 'y': 'Probability'},
             title="Cumulative Probability of Completion"
         )
         fig_cdf.update_layout(**corporate_layout)
-        fig_cdf.add_hline(y=0.90, line_dash="dot", line_color="#DC143C", annotation_text="90% Confidence")
-        fig_cdf.add_vline(x=p90_duration, line_dash="dot", line_color="#DC143C")
-        cdf_placeholder.plotly_chart(fig_cdf, use_container_width=True, theme="streamlit")
+        fig_cdf.add_hline(y=0.90, line_dash="dot", line_color=corporate_highlight, annotation_text="90% Confidence")
+        fig_cdf.add_vline(x=p90_duration, line_dash="dot", line_color=corporate_highlight)
+        st.plotly_chart(fig_cdf, use_container_width=True, theme="streamlit")
 
-        # 4. Update Spaghetti Convergence Chart
-        fig_spag = go.Figure()
-        phases_x = ['Phase 1: Design', 'Phase 2: Site Prep', 'Phase 3: Structure', 'Phase 4: Finishes']
-        
-        # Background lines (random subset to prevent browser crash, max 100)
-        num_paths = min(100, current_idx)
-        for j in range(num_paths):
-            fig_spag.add_trace(go.Scatter(
-                x=phases_x, 
-                y=[cum_p1[j], cum_p2[j], cum_p3[j], cum_p4[j]],
-                mode='lines',
-                line=dict(color='rgba(112, 128, 144, 0.15)', width=1),
-                showlegend=False,
-                hoverinfo='skip'
-            ))
-            
-        # Foreground Mean Line
-        mean_path_y = [
-            np.mean(cum_p1[:current_idx]), 
-            np.mean(cum_p2[:current_idx]), 
-            np.mean(cum_p3[:current_idx]), 
-            np.mean(cum_p4[:current_idx])
-        ]
+    # 3. Spaghetti Convergence Chart
+    st.markdown("---")
+    st.markdown("#### Cumulative Phase Progression (Simulation Path Variance)")
+    
+    fig_spag = go.Figure()
+    
+    # Fully expanded professional labels
+    phases_x = [
+        'Phase 1: Design & Permitting', 
+        'Phase 2: Site Prep & Foundation', 
+        'Phase 3: Structural & Utilities', 
+        'Phase 4: Interiors & Inspections'
+    ]
+    
+    # Background lines (subset of 100 paths with increased opacity for visibility)
+    num_paths = min(100, iterations)
+    for j in range(num_paths):
         fig_spag.add_trace(go.Scatter(
             x=phases_x, 
-            y=mean_path_y,
-            mode='lines+markers',
-            line=dict(color='#DC143C', width=4), # Crimson for high visibility
-            name='Expected Mean Path'
-        ))
-        
-        # Dummy trace for legend entry of background paths
-        fig_spag.add_trace(go.Scatter(
-            x=[None], y=[None],
+            y=[cum_p1[j], cum_p2[j], cum_p3[j], cum_p4[j]],
             mode='lines',
-            line=dict(color='rgba(112, 128, 144, 0.5)', width=1),
-            name='Simulation Paths (Variance)'
+            line=dict(color='rgba(112, 128, 144, 0.4)', width=1),
+            showlegend=False,
+            hoverinfo='skip'
         ))
-
-        fig_spag.update_layout(
-            **corporate_layout,
-            yaxis_title="Cumulative Duration (Days)",
-            hovermode="x unified"
-        )
-        spaghetti_placeholder.plotly_chart(fig_spag, use_container_width=True, theme="streamlit")
         
-        # Brief pause for animation effect
-        time.sleep(0.05)
+    # Foreground Mean Line
+    mean_path_y = [
+        np.mean(cum_p1), 
+        np.mean(cum_p2), 
+        np.mean(cum_p3), 
+        np.mean(cum_p4)
+    ]
+    fig_spag.add_trace(go.Scatter(
+        x=phases_x, 
+        y=mean_path_y,
+        mode='lines+markers',
+        line=dict(color=corporate_highlight, width=4),
+        name='Expected Mean Path'
+    ))
+    
+    # Dummy trace for legend entry of background paths
+    fig_spag.add_trace(go.Scatter(
+        x=[None], y=[None],
+        mode='lines',
+        line=dict(color='rgba(112, 128, 144, 0.4)', width=1),
+        name='Simulation Paths (Variance)'
+    ))
+
+    fig_spag.update_layout(
+        **corporate_layout,
+        yaxis_title="Cumulative Duration (Days)",
+        hovermode="x unified"
+    )
+    st.plotly_chart(fig_spag, use_container_width=True, theme="streamlit")
 
     # ==========================================
     # FINAL RAW DATA EXPORT
