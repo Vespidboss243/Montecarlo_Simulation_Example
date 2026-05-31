@@ -113,15 +113,15 @@ def run_simulation():
     p7_o, p7_m, p7_p = validate_triangular_params(p7_opt, p7_ml, p7_pess)
     p8_o, p8_m, p8_p = validate_triangular_params(p8_opt, p8_ml, p8_pess)
 
-    # Execute numpy generators for the entire set
-    sim_p1 = np.random.triangular(p1_o, p1_m, p1_p, iterations)
-    sim_p2 = np.random.triangular(p2_o, p2_m, p2_p, iterations)
-    sim_p3 = np.random.triangular(p3_o, p3_m, p3_p, iterations)
-    sim_p4 = np.random.triangular(p4_o, p4_m, p4_p, iterations)
-    sim_p5 = np.random.triangular(p5_o, p5_m, p5_p, iterations)
-    sim_p6 = np.random.triangular(p6_o, p6_m, p6_p, iterations)
-    sim_p7 = np.random.triangular(p7_o, p7_m, p7_p, iterations)
-    sim_p8 = np.random.triangular(p8_o, p8_m, p8_p, iterations)
+    # Execute numpy generators for the entire set and round to discrete whole days
+    sim_p1 = np.round(np.random.triangular(p1_o, p1_m, p1_p, iterations)).astype(int)
+    sim_p2 = np.round(np.random.triangular(p2_o, p2_m, p2_p, iterations)).astype(int)
+    sim_p3 = np.round(np.random.triangular(p3_o, p3_m, p3_p, iterations)).astype(int)
+    sim_p4 = np.round(np.random.triangular(p4_o, p4_m, p4_p, iterations)).astype(int)
+    sim_p5 = np.round(np.random.triangular(p5_o, p5_m, p5_p, iterations)).astype(int)
+    sim_p6 = np.round(np.random.triangular(p6_o, p6_m, p6_p, iterations)).astype(int)
+    sim_p7 = np.round(np.random.triangular(p7_o, p7_m, p7_p, iterations)).astype(int)
+    sim_p8 = np.round(np.random.triangular(p8_o, p8_m, p8_p, iterations)).astype(int)
 
     # Calculate cumulative durations for the spaghetti chart
     cum_p1 = sim_p1
@@ -135,10 +135,10 @@ def run_simulation():
     
     total_durations = cum_p8
 
-    # Calculate Key Metrics
-    mean_duration = np.mean(total_durations)
-    median_duration = np.percentile(total_durations, 50)
-    p90_duration = np.percentile(total_durations, 90)
+    # Calculate Key Metrics and ensure they are integers
+    mean_duration = int(np.round(np.mean(total_durations)))
+    median_duration = int(np.round(np.percentile(total_durations, 50)))
+    p90_duration = int(np.round(np.percentile(total_durations, 90)))
 
     # ==========================================
     # METRICS DISPLAY
@@ -147,11 +147,11 @@ def run_simulation():
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.metric(label="Finalización Esperada (Promedio)", value=f"{mean_duration:,.0f} Días")
+        st.metric(label="Finalización Esperada (Promedio)", value=f"{mean_duration} Días")
     with col2:
-        st.metric(label="Percentil 50 (Mediana)", value=f"{median_duration:,.0f} Días")
+        st.metric(label="Percentil 50 (Mediana)", value=f"{median_duration} Días")
     with col3:
-        st.metric(label="Percentil 90 (Objetivo de Riesgo)", value=f"{p90_duration:,.0f} Días")
+        st.metric(label="Percentil 90 (Objetivo de Riesgo)", value=f"{p90_duration} Días")
 
     # ==========================================
     # VISUALIZATIONS
@@ -225,16 +225,16 @@ def run_simulation():
             hoverinfo='skip'
         ))
         
-    # Foreground Mean Line
+    # Foreground Mean Line (rounded to discrete days)
     mean_path_y = [
-        np.mean(cum_p1), 
-        np.mean(cum_p2), 
-        np.mean(cum_p3), 
-        np.mean(cum_p4),
-        np.mean(cum_p5),
-        np.mean(cum_p6),
-        np.mean(cum_p7),
-        np.mean(cum_p8)
+        int(np.round(np.mean(cum_p1))), 
+        int(np.round(np.mean(cum_p2))), 
+        int(np.round(np.mean(cum_p3))), 
+        int(np.round(np.mean(cum_p4))),
+        int(np.round(np.mean(cum_p5))),
+        int(np.round(np.mean(cum_p6))),
+        int(np.round(np.mean(cum_p7))),
+        int(np.round(np.mean(cum_p8)))
     ]
     fig_spag.add_trace(go.Scatter(
         x=phases_x, 
@@ -264,7 +264,8 @@ def run_simulation():
     # ==========================================
     with st.expander("Ver Resumen de Datos Crudos de la Simulación"):
         summary_df = pd.DataFrame(total_durations, columns=['Duración Total (Días)'])
-        st.dataframe(summary_df.describe().T, use_container_width=True)
+        # Also round the description outputs for cleaner reading
+        st.dataframe(np.round(summary_df.describe()).astype(int).T, use_container_width=True)
 
 if __name__ == "__main__":
     run_simulation()
